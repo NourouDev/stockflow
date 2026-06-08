@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
 import { IProductService } from './product.service.interface';
 import { IProductRepository, PRODUCT_REPOSITORY, QueryProductDto, CreateProductDto, UpdateProductDto } from '../repositories/product.repository.interface';
 import { Product, ProductWithStockSummary } from '../interfaces/product.interface';
@@ -16,25 +16,31 @@ export class ProductService implements IProductService {
 
   async findById(id: string): Promise<ProductWithStockSummary> {
     const product = await this.productRepo.findById(id);
-    if (!product) throw new Error('Product not found');
+    if (!product) throw new NotFoundException('Product not found');
     return { ...product, totalOnHand: 0, totalCommitted: 0, totalAvailable: 0, locationCount: 0 };
   }
 
   async findBySku(sku: string): Promise<ProductWithStockSummary> {
     const product = await this.productRepo.findBySku(sku);
-    if (!product) throw new Error('Product not found');
+    if (!product) throw new NotFoundException('Product not found');
     return { ...product, totalOnHand: 0, totalCommitted: 0, totalAvailable: 0, locationCount: 0 };
   }
 
   async create(dto: CreateProductDto): Promise<Product> {
+    const exists = await this.productRepo.existsBySku(dto.sku);
+    if (exists) throw new ConflictException('SKU already exists');
     return this.productRepo.create(dto);
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
+    const product = await this.productRepo.findById(id);
+    if (!product) throw new NotFoundException('Product not found');
     return this.productRepo.update(id, dto);
   }
 
   async softDelete(id: string): Promise<void> {
+    const product = await this.productRepo.findById(id);
+    if (!product) throw new NotFoundException('Product not found');
     return this.productRepo.softDelete(id);
   }
 }
